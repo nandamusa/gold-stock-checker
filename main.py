@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, TimeoutError
 
@@ -57,7 +58,7 @@ def run_stock_checker():
                 for p in products
             ]
             
-            now = datetime.now().strftime("%H:%M:%S")
+            now = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%H:%M:%S")
             header = f"📊 *ANTAM FULL STOCK REPORT*\n📍 {location_name}\n🕒 Time: {now}\n"
             alert_msg = header + "\n" + "—" * 15 + "\n\n" + "\n\n".join(all_items_list)
             
