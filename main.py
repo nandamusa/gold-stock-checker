@@ -24,7 +24,7 @@ def run_stock_checker():
             viewport={"width": 1280, "height": 720},
             locale="id-ID",
             timezone_id="Asia/Jakarta",
-            geolocation={"latitude": -6.2088, "longitude": 106.8456},
+            geolocation={"latitude": -6.1936, "longitude": 106.8912}, #pulogadung
             permissions=["geolocation"],
             args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-infobars"]
         )
@@ -49,24 +49,24 @@ def run_stock_checker():
         except TimeoutError:
             print("⏩ No initial confirmation popup found.")
 
-        # 2. Change Location
-        print("📍 Changing location to Pulo Gadung...")
-        try:
-            page.locator("#btnChangeLocation").click()
-            page.locator("#select2-location-container").wait_for(state="visible")
-            page.locator("#select2-location-container").click()
+        # # 2. Change Location
+        # print("📍 Changing location to Pulo Gadung...")
+        # try:
+        #     page.locator("#btnChangeLocation").click()
+        #     page.locator("#select2-location-container").wait_for(state="visible")
+        #     page.locator("#select2-location-container").click()
             
-            target_option = page.locator(".select2-results__option").filter(
-                has_text="BELM - Pengiriman Ekspedisi, Pulogadung Jakarta, Jakarta"
-            )
-            target_option.first.click()
+        #     target_option = page.locator(".select2-results__option").filter(
+        #         has_text="BELM - Pengiriman Ekspedisi, Pulogadung Jakarta, Jakarta"
+        #     )
+        #     target_option.first.click()
             
-            page.locator("#change-location-button").click()
-            print("🔄 Location set. Waiting for reload...")
-            page.wait_for_load_state("networkidle")
-            time.sleep(3) # Extra buffer for price JS
-        except Exception as e:
-            print(f"❌ Failed to change location: {e}")
+        #     page.locator("#change-location-button").click()
+        #     print("🔄 Location set. Waiting for reload...")
+        #     page.wait_for_load_state("networkidle")
+        #     time.sleep(3) # Extra buffer for price JS
+        # except Exception as e:
+        #     print(f"❌ Failed to change location: {e}")
 
         # 3. Scrape Data
         products = scrape_stock(page)
