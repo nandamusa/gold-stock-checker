@@ -1,0 +1,24 @@
+name: Antam Stock Bot
+on:
+  schedule:
+    - cron: "0 * * * *" # Runs every hour at minute 0
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install dependencies
+        run: uv sync
+      - name: Install Playwright Browsers
+        run: uv run playwright install chromium --with-deps
+      - name: Run Bot
+        env:
+          TARGET_URL: ${{ secrets.TARGET_URL }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          USER_AGENT: ${{ secrets.USER_AGENT }}
+        run: uv run main.py
