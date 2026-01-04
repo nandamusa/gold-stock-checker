@@ -8,18 +8,16 @@ def scrape_stock(page: Page) -> tuple[str, list]:
     products = []
 
     # --- NEW: Extract Location Title ---
+    location_name = "Unknown Location" # Default fallback
     try:
         loc_element = page.locator(".quick-change-location .text")
-        if loc_element.is_visible(timeout=5000):
-            location_name = loc_element.inner_text().strip()
-            print(f"📍 Confirmed Location: {location_name}")
-        else:
-            location_name = "Unknown Location"
-            print("⚠️ Could not find location name element.")
+        loc_element.wait_for("visible", timeout=5000)
+
+        location_name = loc_element.inner_text().strip()
+        print(f"📍 Confirmed Location: {location_name}")
             
     except Exception as e:
-        location_name = "Error Reading Location"
-        print(f"⚠️ Location scrape error: {e}")
+        print(f"⚠️ Could not read location (Page might be loading): {e}")
 
     # --- Product Scraping ---
     try:
