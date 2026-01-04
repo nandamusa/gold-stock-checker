@@ -18,7 +18,7 @@ def run_stock_checker():
         print("🚀 Launching Browser...")
         context = p.chromium.launch_persistent_context(
             user_data_dir="./user_data",
-            # headless=False,
+            headless=False,
             channel="chrome",
             user_agent=USER_AGENT,
             viewport={"width": 1280, "height": 720},
@@ -43,7 +43,7 @@ def run_stock_checker():
         # 1. Handle Initial Confirmation Popup
         popup_confirmation = page.locator(".swal-button--confirm")
         try:
-            popup_confirmation.wait_for(state="visible", timeout=5000)
+            popup_confirmation.wait_for(state="visible", timeout=10000)
             popup_confirmation.click()
             print("✅ Initial confirmation clicked.")
         except TimeoutError:
