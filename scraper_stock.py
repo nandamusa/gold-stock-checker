@@ -11,7 +11,7 @@ def scrape_stock(page: Page) -> tuple[str, list]:
     location_name = "Unknown Location" # Default fallback
     try:
         loc_element = page.locator(".quick-change-location .text")
-        loc_element.wait_for("visible", timeout=5000)
+        loc_element.wait_for(state="visible", timeout=5000)
 
         location_name = loc_element.inner_text().strip()
         print(f"📍 Confirmed Location: {location_name}")
