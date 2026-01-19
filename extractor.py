@@ -1,7 +1,7 @@
 from urllib.parse import unquote
 from curl_cffi.requests import AsyncSession
 
-from config import BASE_URL
+from config import BASE_URL, PROXY
 from exceptions import LoginError, LocationChangeError
 from parser import Parser
 from logger import log
@@ -9,7 +9,14 @@ from logger import log
 
 class Extractor:
     def __init__(self):
-        self._session = AsyncSession(impersonate="chrome")
+        self._proxy = PROXY
+        if self._proxy:
+            masked = self._proxy.split("@")[-1] if "@" in self._proxy else "Found"
+            log.info(f"Using Proxy: {masked}")
+        else:
+            log.warning("No proxy set! Connection might fail on cloud servers.")
+            
+        self._session = AsyncSession(impersonate="chrome", proxy=self._proxy)
 
     async def close(self):
         """Cleanup resources."""
