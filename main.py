@@ -1,75 +1,62 @@
-import os
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from dotenv import load_dotenv
-from playwright.sync_api import sync_playwright, TimeoutError
+import asyncio
+import logging
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
-from telegram import send_telegram
-from scraper_stock import scrape_stock
-
-load_dotenv()
-
-TARGET_URL = os.getenv("TARGET_URL")
-USER_AGENT = os.getenv("USER_AGENT")
+from config import LOCATION_MAP
+from extractor import Extractor
+from notifier import Notifier
+from exceptions import AppError
+from logger import log
 
 
-def run_stock_checker():
-    with sync_playwright() as p:
-        print("🚀 Launching Browser...")
-        context = p.chromium.launch_persistent_context(
-            user_data_dir="./user_data",
-            # headless=False,
-            channel="chrome",
-            user_agent=USER_AGENT,
-            viewport={"width": 1280, "height": 720},
-            locale="id-ID",
-            timezone_id="Asia/Jakarta",
-            geolocation={"latitude": -6.1936, "longitude": 106.8912}, #pulogadung
-            permissions=["geolocation"],
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-infobars"]
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(AppError),
+    before_sleep=before_sleep_log(log, logging.WARNING)
+)
+async def process_single_location(sem: asyncio.Semaphore, notifier: Notifier, loc_name: str, loc_id: str):
+    """
+    Creates a fresh Extractor session for this specific location,
+    runs the process, and cleans up.
+    """
+    async with sem:
+        extractor = Extractor() 
+        try:
+            data = await extractor.process_location(loc_name, loc_id)
+            if data and data['products']:
+                await notifier.send_stock_update(data['key'], data['display_name'], data['products'])
+        finally:
+            await extractor.close()
+
+async def main():
+    log.info("system.start")
+    
+    notifier = Notifier()
+    sem = asyncio.Semaphore(3)
+    tasks = []
+
+    for loc_name, loc_id in LOCATION_MAP.items():
+        task = asyncio.create_task(
+            process_single_location(sem, notifier, loc_name, loc_id)
         )
+        tasks.append(task)
 
-        page = context.pages[0]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for i, result in enumerate(results):
+        loc_name = list(LOCATION_MAP.keys())[i]
         
-        # Hide automation footprint
-        page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-        try:
-            print(f"🌍 Navigating to {TARGET_URL}")
-            page.goto(TARGET_URL, timeout=60000, wait_until="domcontentloaded")
-        except TimeoutError:
-            print("⚠️ Initial load timed out. Proceeding...")
-
-        # 1. Handle Initial Confirmation Popup
-        popup_confirmation = page.locator(".swal-button--confirm")
-        try:
-            popup_confirmation.wait_for(state="visible", timeout=10000)
-            popup_confirmation.click()
-            print("✅ Initial confirmation clicked.")
-        except TimeoutError:
-            print("⏩ No initial confirmation popup found.")
-
-        # 2. Scrape Data
-        location_name, products = scrape_stock(page)
-
-        if products:
-            all_items_list = [
-                f"🔹 *{p['name']}*\nStatus: {p['status']} -> Price: {p['price']}" 
-                for p in products
-            ]
-            
-            now = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%H:%M:%S")
-            header = f"📊 *ANTAM FULL STOCK REPORT*\n📍 {location_name}\n🕒 Time: {now}\n"
-            alert_msg = header + "\n" + "—" * 15 + "\n\n" + "\n\n".join(all_items_list)
-            
-            # 3. Send
-            send_telegram(alert_msg)
-            print(f"✅ Full report ({len(products)} items) sent to Telegram.")
+        if isinstance(result, Exception):
+            log.error(f"Failed to scrape {loc_name} after multiple attempts.", error=str(result))
         else:
-            print("❌ Failed: Product list is empty.")
+            log.info(f"Finished processing {loc_name}")
 
-        print("✅ Session finished. Close the browser.")
-        context.close()
+    log.info("system.finish")
+
 
 if __name__ == "__main__":
-    run_stock_checker()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

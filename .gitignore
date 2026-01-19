@@ -11,3 +11,4 @@ wheels/
 
 .env
 user_data/
+.DS_Store
