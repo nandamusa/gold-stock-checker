@@ -8,6 +8,7 @@ load_dotenv()
 BASE_URL: Final[str] = os.getenv("BASE_URL")
 TELEGRAM_TOKEN: Final[str] = os.getenv("TELEGRAM_TOKEN")
 CHAT_IDS = [x.strip() for x in os.getenv("TELEGRAM_CHAT_ID").split(",") if x.strip()]
+PROXY = os.getenv("PROXY", "").strip()
 
 SELECTORS: Final[dict] = {
     "location": ".quick-change-location .text",
