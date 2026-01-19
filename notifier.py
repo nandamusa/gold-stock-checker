@@ -21,17 +21,21 @@ class Notifier:
         now = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%H:%M:%S")
         loc_header = display_name or location_key.replace("_", " ").title()
         
-        items_str = "\n\n".join(
-            [f"🔹 *{p['product']}*\nStatus: {p['status']}" for p in products]
-        )
-        
-        return (
+        available_items = [p for p in products if "✅" in p['status']]
+        header = (
             f"📊 *ANTAM STOCK REPORT*\n"
             f"📍 {loc_header}\n"
             f"🕒 {now}\n"
             f"{'—' * 15}\n\n"
-            f"{items_str}"
         )
+        if not available_items:
+            return header + "🔴 *ALL STOCK OUT*"
+        
+        items_str = "\n\n".join(
+            [f"🔹 *{p['product']}*\nStatus: {p['status']}" for p in available_items]
+        )
+        
+        return header + items_str
 
     async def send_stock_update(self, location_key: str, display_name: str, products: List[ProductData]):
         if not self._active or not products:
