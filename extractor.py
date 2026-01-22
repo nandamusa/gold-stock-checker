@@ -14,9 +14,13 @@ class Extractor:
             masked = self._proxy.split("@")[-1] if "@" in self._proxy else "Found"
             log.info(f"Using Proxy: {masked}")
         else:
-            log.warning("No proxy set! Connection might fail on cloud servers.")
+            log.warning("No proxy set!")
             
-        self._session = AsyncSession(impersonate="chrome", proxy=self._proxy, timeout=60)
+        session_kwargs = {"impersonate": "chrome", "timeout": 60}
+        if self._proxy:
+            session_kwargs["proxy"] = self._proxy
+            
+        self._session = AsyncSession(**session_kwargs)
 
     async def close(self):
         if hasattr(self._session, 'close'):
