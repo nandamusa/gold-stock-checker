@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple, TypedDict
 from selectolax.lexbor import LexborHTMLParser, LexborNode
+import json
+import re
 
 from config import SELECTORS
 from exceptions import ParseError
@@ -9,11 +11,13 @@ from logger import log
 class ProductData(TypedDict):
     product: str
     status: str
+    quantity: int
 
 class Parser:
     def __init__(self, html: str):
         if not html:
             raise ParseError("Cannot parse empty HTML")
+        self._html = html
         self._parser = LexborHTMLParser(html)
 
     def get_csrf_token(self) -> str:
@@ -26,34 +30,35 @@ class Parser:
         node = self._parser.css_first(SELECTORS["location"])
         return node.text(strip=True) if node else "Unknown Location"
 
-    def _parse_row(self, row: LexborNode) -> Optional[ProductData]:
-        item_node = row.css_first(SELECTORS["row_item"])
-        if not item_node:
-            return None
-
-        name_node = item_node.css_first(SELECTORS["item_name"])
-        if not name_node:
-            return None
-        
-        raw_text = name_node.text(strip=True, separator="|")
-        clean_name = raw_text.split("|")[0].strip() if raw_text else "Unknown Product"
-
-        is_out_of_stock = item_node.css_first(SELECTORS["out_of_stock"]) is not None
-        status_icon = "❌" if is_out_of_stock else "✅"
-
-        return {"product": clean_name, "status": status_icon}
 
     def parse_stock_data(self) -> Tuple[str, List[ProductData]]:
         location_name = self._extract_location_name()
-        rows = self._parser.css(SELECTORS["rows"])
         
-        if not rows:
-            log.warning("parser.no_rows_found", location=location_name)
-            return location_name, []
-
-        products: List[ProductData] = []
-        for row in rows:
-            if data := self._parse_row(row):
-                products.append(data)
-
+        products = self._extract_from_scripts()
+        if not products:
+             log.warning("parser.no_data_found", location=location_name)
+             return location_name, []
+             
+        log.info("parser.scripts_success", location=location_name, items_found=len(products))
         return location_name, products
+
+    def _extract_from_scripts(self) -> List[ProductData]:
+        scripts = self._parser.css("script")
+        for script in scripts:
+            content = script.text()
+            if "var purchase_array =" in content:
+                match = re.search(r"var\s+purchase_array\s*=\s*(\[.*?\])\s*;", content, re.DOTALL)
+                if match:
+                    try:
+                        raw_data = json.loads(match.group(1))
+                        return [
+                            {
+                                "product": item.get("item_name", "Unknown"),
+                                "status": "✅" if item.get("quantity", 0) > 0 else "❌",
+                                "quantity": item.get("quantity", 0)
+                            }
+                            for item in raw_data
+                        ]
+                    except json.JSONDecodeError as e:
+                        log.error("parser.json_error", error=str(e))
+        return []

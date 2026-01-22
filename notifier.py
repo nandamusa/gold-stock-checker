@@ -32,7 +32,7 @@ class Notifier:
             return header + "🔴 *ALL STOCK OUT*"
         
         items_str = "\n\n".join(
-            [f"🔹 *{p['product']}*\nStatus: {p['status']}" for p in available_items]
+            [f"🔹 *{p['product']}*\nStock: {p['quantity']}" for p in available_items]
         )
         
         return header + items_str
